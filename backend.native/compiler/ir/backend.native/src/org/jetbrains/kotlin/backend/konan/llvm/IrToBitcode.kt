@@ -1085,6 +1085,7 @@ internal class CodeGeneratorVisitor(val context: Context) : IrElementVisitorVoid
 
         expression.branches.forEach {                           // Iterate through "when" branches (clauses).
             var bbNext = bbExit                                 // For last clause bbNext coincides with bbExit.
+            debugLocation(it)
             if (it != expression.branches.last())               // If it is not last clause.
                 bbNext = codegen.basicBlock("when_next")        // Create new basic block for next clause.
             generateWhenCase(resultPhi, it, bbNext, bbExit)     // Generate code for current clause.
@@ -1103,19 +1104,21 @@ internal class CodeGeneratorVisitor(val context: Context) : IrElementVisitorVoid
 
     private fun evaluateWhileLoop(loop: IrWhileLoop): LLVMValueRef {
         val loopScope = LoopScope(loop)
-        using(loopScope) {
-            val loopBody  = codegen.basicBlock("while_loop")
-            codegen.br(loopScope.loopCheck)
+        debugInfo(loop) {
+            using(loopScope) {
+                val loopBody = codegen.basicBlock("while_loop")
+                codegen.br(loopScope.loopCheck)
 
-            codegen.positionAtEnd(loopScope.loopCheck)
-            val condition = evaluateExpression(loop.condition)
-            codegen.condBr(condition, loopBody, loopScope.loopExit)
+                codegen.positionAtEnd(loopScope.loopCheck)
+                val condition = evaluateExpression(loop.condition)
+                codegen.condBr(condition, loopBody, loopScope.loopExit)
 
-            codegen.positionAtEnd(loopBody)
-            loop.body?.generate()
+                codegen.positionAtEnd(loopBody)
+                loop.body?.generate()
 
-            codegen.br(loopScope.loopCheck)
-            codegen.positionAtEnd(loopScope.loopExit)
+                codegen.br(loopScope.loopCheck)
+                codegen.positionAtEnd(loopScope.loopExit)
+            }
         }
 
 
@@ -1408,6 +1411,7 @@ internal class CodeGeneratorVisitor(val context: Context) : IrElementVisitorVoid
 
     private fun evaluateConst(value: IrConst<*>): LLVMValueRef {
         context.log("evaluateConst                  : ${ir2string(value)}")
+        debugLocation(value)
         when (value.kind) {
             IrConstKind.Null    -> return codegen.kNullObjHeaderPtr
             IrConstKind.Boolean -> when (value.value) {
@@ -1442,6 +1446,7 @@ internal class CodeGeneratorVisitor(val context: Context) : IrElementVisitorVoid
             evaluated
         }
 
+        debugLocation(expression)
         currentCodeContext.genReturn(target, ret)
         return codegen.kNothingFakeValue
     }
